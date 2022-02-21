@@ -16,42 +16,40 @@ class DQN_agent():
                discount factor gamma
     '''
 
-    def __init__(self,critic,lrate,gamma=0.95,action_space_dim=1):
-        self.critic_model = critic
-        self.critic_optimizer = optim.Adam(self.critic_model.parameters(), lr=lrate)
-        self.critic_loss = nn.MSELoss(reduction='mean')
+    def __init__(self,Q_net,lrate,n_actions,gamma=0.95):
+        self.Q_net = Q_net
+        self.Q_optimizer = optim.Adam(self.Q_net.parameters(), lr=lrate)
         self.gamma = gamma
-        self.action_space_dim = action_space_dim
-        self.possible_actions = torch.Tensor(np.arange(action_space_dim))
+        self.n_actions = n_actions
 
-    def get_optimal_action(self,state)
-        sa = torch.cat((state.repeat(self.n_actions),self.possible_actions),axis=1)
-        optimal_action = torch.argmax(self.critic_model(sa))
-
-    def _critic_update(self,s,ns,r,n_ep):
+    def _Q_update(self,s,a,r,ns,n_ep):
         '''
-        Trains a critic to minimize the mean squared projected Bellman error
+        Train the Q network to minimize the mean squared projected Bellman error
         Arguments: state-action pairs, actions, new states, rewards, number of training epochs
         '''
         for i in range(n_ep):
-            nQ = self.critic_model(nsa)
-            TD_targets = r + self.gamma*nQ
-            self.critic_model.train()
-            Q = self.critic_model(sa)
-            loss = self.critic_loss(Q,TD_targets)
-            self.critic_optimizer.zero_grad()
+            with torch.no_grad():
+                nQ = self.Q_net(ns).max(1).values
+                TD_targets = r + self.gamma*nQ.unsqueeze(-1)
+            self.Q_net.train()
+            Q = self.Q_net(s)[:,a]
+            loss = ((TD_targets - Q) ** 2).mean()
+            self.Q_net.zero_grad()
             loss.backward()
-            self.critic_optimizer.step()
+            self.Q_net.step()
         return loss
 
-    def update(self,states,actions,new_states,rewards,n_epochs):
+    def update(self,states,actions,rewards,new_states,n_epochs):
         '''Update Q-network'''
-        critic_loss = self._critic_update(states,actions,new_states,rewards,n_epochs)
+        critic_loss = self._Q_update(states,actions,rewards,new_states,n_epochs)
         return critic_loss
 
     def get_action(self,state,eps=0.1):
         '''Choose an optimal action with prob. 1-eps and random action with probability eps'''
-        optimal_action = get_optimal_action(state).detach().numpy()
-        random_action = np.random.choice(action_prob.shape[0], p = action_prob)
+        if np.random.binomial(1, eps) == 0:
+            state = torch.tensor(state,dtype=torch.float32)
+            action = self.Q_net(state).argmax().numpy()
+        else:
+            action = np.random.choice(np.arange(self.n_actions))
 
-        return action, optimal_action
+        return action
