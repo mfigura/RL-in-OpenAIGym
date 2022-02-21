@@ -20,61 +20,50 @@ class Value_Approximation(nn.Module):
     '''Neural network V(s;w,b)'''
     def __init__(self,obs_dim):
         super().__init__()
-        self.obs_dim = obs_dim
-        self.fc1 = nn.Linear(self.obs_dim,2*self.obs_dim)
-        self.fc2 = nn.Linear(2*self.obs_dim,2*self.obs_dim)
-        self.fc3 = nn.Linear(2*self.obs_dim, 1)
-        self.relu_layer = nn.LeakyReLU(0.3)
+        self.fc1 = nn.Linear(obs_dim,10)
+        self.fc2 = nn.Linear(10,1)
+        self.relu_layer = nn.LeakyReLU(0.1)
 
     def forward(self, x):
         z1 = self.relu_layer(self.fc1(x))
-        z2 = self.relu_layer(self.fc2(z1))
-        return self.fc3(z2)
+        return self.fc2(z1)
 
 class Q_Approximation(nn.Module):
     '''Neural network Q(s;w,b)'''
     def __init__(self,obs_dim,action_dim):
         super().__init__()
-        self.obs_dim = obs_dim
-        self.action_dim = action_dim
-        self.fc1 = nn.Linear(self.obs_dim,2*self.obs_dim)
-        self.fc2 = nn.Linear(2*self.obs_dim,2*self.obs_dim)
-        self.fc3 = nn.Linear(2*self.obs_dim, self.action_dim)
-        self.relu_layer = nn.LeakyReLU(0.3)
+        self.fc1 = nn.Linear(obs_dim,20)
+        self.fc2 = nn.Linear(20,action_dim)
+        self.relu_layer = nn.LeakyReLU(0.1)
 
     def forward(self, x):
         z1 = self.relu_layer(self.fc1(x))
-        z2 = self.relu_layer(self.fc2(z1))
-        return self.fc3(z2)
+        return self.fc2(z1)
 
 class Policy_Approximation(nn.Module):
     '''Neural network pi(a|s;w,b)'''
     def __init__(self,obs_dim,action_dim):
         super().__init__()
-        self.obs_dim = obs_dim
-        self.action_dim = action_dim
-        self.fc1 = nn.Linear(self.obs_dim,2*self.obs_dim)
-        self.fc2 = nn.Linear(2*self.obs_dim,2*self.obs_dim)
-        self.fc3 = nn.Linear(2*self.obs_dim,self.action_dim)
+        self.fc1 = nn.Linear(obs_dim,10)
+        self.fc2 = nn.Linear(10,action_dim)
         self.softmax_layer = nn.Softmax(-1)
-        self.relu_layer = nn.LeakyReLU(0.3)
+        self.relu_layer = nn.LeakyReLU(0.1)
 
     def forward(self, x):
         z1 = self.relu_layer(self.fc1(x))
-        z2 = self.relu_layer(self.fc2(z1))
-        z3 = self.softmax_layer(self.fc3(z2))
-        return distributions.Categorical(z3)
+        z2 = self.softmax_layer(self.fc2(z1))
+        return distributions.Categorical(z2)
 
 if __name__ == '__main__':
 
     '''USER-DEFINED PARAMETERS'''
     parser = argparse.ArgumentParser(description='Provide parameters for training RL agents')
-    parser.add_argument('--n_episodes', help='number of episodes', type=int, default=1)
+    parser.add_argument('--n_episodes', help='number of episodes', type=int, default=1000)
     parser.add_argument('--max_ep_len', help='max episode length', type=int, default=200)
-    parser.add_argument('--update_frequency', help='min number of samples for an update', type=int, default=1)
+    parser.add_argument('--update_frequency', help='min number of samples for an update', type=int, default=500)
     parser.add_argument('--lr', help='function approximation learning rate',type=float, default=0.01)
-    parser.add_argument('--gamma', help='discount factor', type=float, default=0.9)
-    parser.add_argument('--n_epochs',help='number of training epochs for the critic',type=int,default=20)
+    parser.add_argument('--gamma', help='discount factor', type=float, default=0)
+    parser.add_argument('--n_epochs',help='number of training epochs for the critic',type=int,default=10)
     parser.add_argument('--random_seed',help='Set random seed for the random number generator',type=int,default=None)
 
     args = vars(parser.parse_args())

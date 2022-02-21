@@ -38,7 +38,7 @@ def train_batch(env,agent,args):
             new_observations.append(new_obs)
             rewards.append(reward)
             ep_rewards[t] += reward
-            counter += 1            
+            counter += 1
             done = True if counter == max_ep_len else done
 
         n_train_samples += counter
@@ -60,8 +60,8 @@ def train_batch(env,agent,args):
             observations.clear(), new_observations.clear(), actions.clear(), rewards.clear()
             n_train_samples = 0
 
-            critic_loss, actor_loss = agent.update(sts,acts,rews,new_sts,n_epochs)
-            print(f'| Critic loss: {critic_loss} | Actor loss: {actor_loss}')
+            critic_loss = agent.update(sts,acts,rews,new_sts,n_epochs)
+            print(f'| Critic loss: {critic_loss}')
 
     sim_data = pd.DataFrame.from_dict(paths)
     return agent,sim_data
