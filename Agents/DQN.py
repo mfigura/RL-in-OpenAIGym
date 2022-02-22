@@ -14,6 +14,8 @@ The code is designed for discrete action spaces.
 class DQN_agent():
     '''
     ARGUMENTS: critic
+               learning rate
+               number of possible actions
                discount factor gamma
     '''
 
@@ -23,41 +25,43 @@ class DQN_agent():
         self.gamma = gamma
         self.n_actions = n_actions
 
-    def _Q_update(self,s,a,r,ns,n_ep,n_refresh=1):
+    def _Q_update(self,s,a,r,ns,not_dones,n_ep,n_TD=10):
         '''
         Train the Q network to minimize the mean squared projected Bellman error
         Arguments: states, actions, rewards, new states, number of training epochs/fixed TD error, number of TD error updates
         '''
-        with torch.no_grad():
-            nQ = self.Q_net(ns).max(1).values
-            TD_targets = r + self.gamma*nQ.unsqueeze(-1)
-
-        ds = TensorDataset(s,a,TD_targets)
-        train_size = int(0.7 * len(ds))
-        test_size = len(ds) - train_size
-        train_ds, test_ds = torch.utils.data.random_split(ds, [train_size, test_size])
-        s_train, a_train, y_train = train_ds[:]
-        s_test, a_test, y_test = test_ds[:]
-
-        a_train = a_train.to(torch.long).unsqueeze(-1)
-        a_test = a_test.to(torch.long).unsqueeze(-1)
-        for i in range(n_ep):
-            self.Q_net.train()
-            Q_train = self.Q_net(s_train).gather(1,a_train)
-            train_loss = torch.square(y_train - Q_train).mean()
-            self.Q_optimizer.zero_grad()
-            train_loss.backward()
-            self.Q_optimizer.step()
-            self.Q_net.eval()
+        not_dones = torch.Tensor(not_dones)
+        for j in range(n_TD):
             with torch.no_grad():
-                Q_test = self.Q_net(s_test).gather(1,a_test)
-                valid_loss = torch.square(y_test - Q_test).mean()
-            print(f'Epoch: {i}, training loss: {train_loss}, validation loss: {valid_loss}')
+                nQ = self.Q_net(ns).max(1).values * not_dones
+                TD_targets = r + self.gamma*nQ.unsqueeze(-1)
+
+            ds = TensorDataset(s,a,TD_targets)
+            train_size = int(0.7 * len(ds))
+            test_size = len(ds) - train_size
+            train_ds, test_ds = torch.utils.data.random_split(ds, [train_size, test_size])
+            s_train, a_train, y_train = train_ds[:]
+            s_test, a_test, y_test = test_ds[:]
+
+            a_train = a_train.to(torch.long).unsqueeze(-1)
+            a_test = a_test.to(torch.long).unsqueeze(-1)
+            for i in range(n_ep):
+                self.Q_net.train()
+                Q_train = self.Q_net(s_train).gather(1,a_train)
+                train_loss = torch.square(y_train - Q_train).mean()
+                self.Q_optimizer.zero_grad()
+                train_loss.backward()
+                self.Q_optimizer.step()
+                self.Q_net.eval()
+                with torch.no_grad():
+                    Q_test = self.Q_net(s_test).gather(1,a_test)
+                    valid_loss = torch.square(y_test - Q_test).mean()
+            #print(f'Epoch: {j},{i}, training loss: {train_loss}, validation loss: {valid_loss}')
         return train_loss
 
-    def update(self,states,actions,rewards,new_states,n_epochs):
+    def update(self,states,actions,rewards,new_states,not_dones,n_epochs,n_TD):
         '''Update Q-network'''
-        critic_loss = self._Q_update(states,actions,rewards,new_states,n_epochs)
+        critic_loss = self._Q_update(states,actions,rewards,new_states,not_dones,n_epochs,n_TD)
         return critic_loss
 
     def get_action(self,state,eps=0.1):

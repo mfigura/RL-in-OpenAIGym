@@ -16,8 +16,9 @@ def train_batch(env,agent,args):
     n_episodes = args['n_episodes']
     max_ep_len = args['max_ep_len']
     n_epochs = args['n_epochs']
+    n_TD = args['n_TD']
 
-    observations, new_observations, actions, rewards = [], [], [], []
+    observations, new_observations, actions, rewards, not_dones = [], [], [], [], []
     ep_rewards = np.zeros(n_episodes)
     n_train_samples = 0
 
@@ -40,7 +41,7 @@ def train_batch(env,agent,args):
             ep_rewards[t] += reward
             counter += 1
             done = True if counter == max_ep_len else done
-
+            not_dones.append(not done)
         n_train_samples += counter
 
         'SUMMARY OF THE TRAINING EPISODE'
@@ -52,15 +53,17 @@ def train_batch(env,agent,args):
         'DATA PROCESSING AND ALGORITHM UPDATES'
 
         if n_train_samples >= k:
-
+            'Process data'
             sts = torch.tensor(np.array(observations),dtype=torch.float32)
             new_sts = torch.tensor(np.array(new_observations),dtype=torch.float32)
             acts = torch.tensor(np.array(actions),dtype=torch.float32)
             rews = torch.tensor(np.array(rewards),dtype=torch.float32).unsqueeze(-1)
-            observations.clear(), new_observations.clear(), actions.clear(), rewards.clear()
+            'Update algorithm'
+            critic_loss = agent.update(sts,acts,rews,new_sts,not_dones,n_epochs,n_TD)
+            'Reset buffers'
+            observations.clear(), new_observations.clear(), actions.clear(), rewards.clear(), not_dones.clear()
             n_train_samples = 0
-
-            critic_loss = agent.update(sts,acts,rews,new_sts,n_epochs)
+            'Print loss'
             print(f'| Critic loss: {critic_loss}')
 
     sim_data = pd.DataFrame.from_dict(paths)
