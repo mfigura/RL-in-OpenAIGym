@@ -21,7 +21,7 @@ class DQN_agent():
 
     def __init__(self,Q_net,lrate,n_actions,gamma=0.95):
         self.Q_net = Q_net
-        self.Q_optimizer = optim.SGD(self.Q_net.parameters(), lr=lrate)
+        self.Q_optimizer = optim.Adam(self.Q_net.parameters(), lr=lrate)
         self.gamma = gamma
         self.n_actions = n_actions
 

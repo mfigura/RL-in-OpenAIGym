@@ -23,9 +23,9 @@ class AC_agent():
 
     def __init__(self,actor,critic,actor_lrate,critic_lrate,gamma=0.95):
         self.actor_model = actor
-        self.actor_optimizer = optim.SGD(self.actor_model.parameters(), lr=actor_lrate)
+        self.actor_optimizer = optim.Adam(self.actor_model.parameters(), lr=actor_lrate)
         self.critic_model = critic
-        self.critic_optimizer = optim.SGD(self.critic_model.parameters(), lr=critic_lrate)
+        self.critic_optimizer = optim.Adam(self.critic_model.parameters(), lr=critic_lrate)
         self.gamma = gamma
 
     def _critic_update(self,s,a,r,ns,not_dones,n_ep,n_TD):

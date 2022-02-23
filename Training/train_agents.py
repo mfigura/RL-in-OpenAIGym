@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import math
 import gym
+import random
 from gym import spaces
 import pandas as pd
 
@@ -17,6 +18,7 @@ def train_batch(env,agent,args):
     max_ep_len = args['max_ep_len']
     n_epochs = args['n_epochs']
     n_TD = args['n_TD']
+    replay_buffer_size = args['replay_buffer_size']
 
     observations, new_observations, actions, rewards, not_dones = [], [], [], [], []
     ep_rewards = np.zeros(n_episodes)
@@ -60,9 +62,19 @@ def train_batch(env,agent,args):
             rews = torch.tensor(np.array(rewards),dtype=torch.float32).unsqueeze(-1)
             'Update algorithm'
             critic_loss = agent.update(sts,acts,rews,new_sts,not_dones,n_epochs,n_TD)
-            'Reset buffers'
-            observations.clear(), new_observations.clear(), actions.clear(), rewards.clear(), not_dones.clear()
-            n_train_samples = 0
+            'Update replay buffers'
+            n_removed_samples = max(n_train_samples - replay_buffer_size,0)
+            if not n_removed_samples == 0:
+                exp_replay_buffer = list(zip(observations,actions,rewards,new_observations,not_dones))
+                random.shuffle(exp_replay_buffer)
+                del exp_replay_buffer[:n_removed_samples]
+                shuffled_zipped_ERB = list(zip(*exp_replay_buffer))
+                observations = list(shuffled_zipped_ERB[0])
+                actions = list(shuffled_zipped_ERB[1])
+                rewards = list(shuffled_zipped_ERB[2])
+                new_observations = list(shuffled_zipped_ERB[3])
+                not_dones = list(shuffled_zipped_ERB[4])
+                n_train_samples = n_train_samples - n_removed_samples
             'Print loss'
             print(f'| Critic loss: {critic_loss}')
 

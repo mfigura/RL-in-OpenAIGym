@@ -21,9 +21,9 @@ class Value_Approximation(nn.Module):
     '''Neural network V(s;w,b)'''
     def __init__(self,obs_dim):
         super().__init__()
-        self.fc1 = nn.Linear(obs_dim,15)
-        self.fc2 = nn.Linear(15,15)
-        self.fc3 = nn.Linear(15,1)
+        self.fc1 = nn.Linear(obs_dim,20)
+        self.fc2 = nn.Linear(20,20)
+        self.fc3 = nn.Linear(20,1)
         self.relu_layer = nn.LeakyReLU(0.1)
 
     def forward(self, x):
@@ -35,9 +35,9 @@ class Q_Approximation(nn.Module):
     '''Neural network Q(s;w,b)'''
     def __init__(self,obs_dim,action_dim):
         super().__init__()
-        self.fc1 = nn.Linear(obs_dim,15)
-        self.fc2 = nn.Linear(15,15)
-        self.fc3 = nn.Linear(15,action_dim)
+        self.fc1 = nn.Linear(obs_dim,20)
+        self.fc2 = nn.Linear(20,20)
+        self.fc3 = nn.Linear(20,action_dim)
         self.relu_layer = nn.LeakyReLU(0.1)
 
     def forward(self, x):
@@ -67,12 +67,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Provide parameters for training RL agents')
     parser.add_argument('--n_episodes', help='number of episodes', type=int, default=2000)
     parser.add_argument('--max_ep_len', help='max episode length', type=int, default=200)
-    parser.add_argument('--update_frequency', help='min number of samples for an update', type=int, default=500)
-    parser.add_argument('--critic_lr', help='value approximation learning rate',type=float, default=0.01)
+    parser.add_argument('--update_frequency', help='min number of samples for an update', type=int, default=300)
+    parser.add_argument('--critic_lr', help='value approximation learning rate',type=float, default=0.005)
     parser.add_argument('--actor_lr', help='policy approximation learning rate (if applicable)',type=float, default=0.003)
     parser.add_argument('--gamma', help='discount factor', type=float, default=0.9)
-    parser.add_argument('--n_epochs',help='number of training epochs for the critic',type=int,default=20)
-    parser.add_argument('--n_TD',help='number of times TD errors are reevaluated in the critic updates',type=int,default=10)
+    parser.add_argument('--n_epochs',help='number of training epochs for the critic',type=int,default=10)
+    parser.add_argument('--n_TD',help='number of times TD errors are reevaluated in the critic updates',type=int,default=1)
+    parser.add_argument('--replay_buffer_size',help='number of samples that are stored in the replay buffer',type=int,default=200)
     parser.add_argument('--random_seed',help='Set random seed for the random number generator',type=int,default=None)
 
     args = vars(parser.parse_args())

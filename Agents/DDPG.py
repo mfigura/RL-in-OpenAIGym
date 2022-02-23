@@ -72,8 +72,8 @@ class DDPG_agent():
         not_dones = torch.Tensor(not_dones).unsqueeze(-1)
         act = a.to(torch.long).unsqueeze(-1)
         with torch.no_grad():
-            nQ = self.Q_net(ns).max(1).values * not_dones
             Q = self.Q_net(s).gather(1,act)
+            nQ = (self.Q_net(ns)*self.actor_model(ns).probs).sum(dim=1).unsqueeze(-1) * not_dones
             TD_errors = (r + self.gamma * nQ - Q).squeeze(-1)
         self.actor_model.train()
         a_prob = self.actor_model(s)
@@ -94,7 +94,7 @@ class DDPG_agent():
         if np.random.binomial(1, eps) == 0:
             state = torch.tensor(state,dtype=torch.float32)
             with torch.no_grad():
-                action = self.actor_model(state).sample().numpy()
+                action = self.actor_model(state).probs.argmax().numpy()
         else:
             action = np.random.choice(np.arange(self.n_actions))
 
