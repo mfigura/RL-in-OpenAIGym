@@ -30,21 +30,23 @@ class DQN_agent():
         Train the Q network to minimize the mean squared projected Bellman error
         Arguments: states, actions, rewards, new states, number of training epochs/fixed TD error, number of TD error updates
         '''
-        not_dones = torch.Tensor(not_dones)
+        ds = TensorDataset(s,a,r,ns,not_dones)
+        train_size = int(0.7 * len(ds))
+        test_size = len(ds) - train_size
+        train_ds, test_ds = torch.utils.data.random_split(ds, [train_size, test_size])
+        s_train, a_train, r_train, ns_train, nd_train = train_ds[:]
+        s_test, a_test, r_test, ns_test, nd_test = test_ds[:]
+        a_train = a_train.to(torch.long)
+        a_test = a_test.to(torch.long)
+
         for j in range(n_TD):
+            '''Evaluate TD targets'''
             with torch.no_grad():
-                nQ = self.Q_net(ns).max(1).values * not_dones
-                TD_targets = r + self.gamma*nQ.unsqueeze(-1)
-
-            ds = TensorDataset(s,a,TD_targets)
-            train_size = int(0.7 * len(ds))
-            test_size = len(ds) - train_size
-            train_ds, test_ds = torch.utils.data.random_split(ds, [train_size, test_size])
-            s_train, a_train, y_train = train_ds[:]
-            s_test, a_test, y_test = test_ds[:]
-
-            a_train = a_train.to(torch.long).unsqueeze(-1)
-            a_test = a_test.to(torch.long).unsqueeze(-1)
+                nQ_train = self.Q_net(ns_train).max(1).values * nd_train
+                y_train = r_train + self.gamma*nQ_train.unsqueeze(-1)
+                nQ_test = self.Q_net(ns_test).max(1).values * nd_test
+                y_test = r_test + self.gamma*nQ_test.unsqueeze(-1)
+            '''Minimize mean squared error'''
             for i in range(n_ep):
                 self.Q_net.train()
                 Q_train = self.Q_net(s_train).gather(1,a_train)
@@ -56,13 +58,13 @@ class DQN_agent():
                 with torch.no_grad():
                     Q_test = self.Q_net(s_test).gather(1,a_test)
                     valid_loss = torch.square(y_test - Q_test).mean()
-            #print(f'Epoch: {j},{i}, training loss: {train_loss}, validation loss: {valid_loss}')
-        return train_loss
+
+        return (train_loss,valid_loss)
 
     def update(self,states,actions,rewards,new_states,not_dones,n_epochs,n_TD):
         '''Update Q-network'''
         critic_loss = self._Q_update(states,actions,rewards,new_states,not_dones,n_epochs,n_TD)
-        return critic_loss
+        return critic_loss, None
 
     def get_action(self,state,eps=0.1):
         '''Choose an optimal action with prob. 1-eps and random action with probability eps'''

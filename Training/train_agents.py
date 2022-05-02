@@ -29,7 +29,6 @@ def train_batch(env,agent,args):
         'EPISODE SIMULATION'
 
         new_obs = env.reset()
-        #env.render()
         done = False
 
         counter = 0
@@ -58,10 +57,11 @@ def train_batch(env,agent,args):
             'Process data'
             sts = torch.tensor(np.array(observations),dtype=torch.float32)
             new_sts = torch.tensor(np.array(new_observations),dtype=torch.float32)
-            acts = torch.tensor(np.array(actions),dtype=torch.float32)
+            acts = torch.tensor(np.array(actions),dtype=torch.float32).unsqueeze(-1)
             rews = torch.tensor(np.array(rewards),dtype=torch.float32).unsqueeze(-1)
+            not_dones = torch.Tensor(not_dones)
             'Update algorithm'
-            critic_loss = agent.update(sts,acts,rews,new_sts,not_dones,n_epochs,n_TD)
+            critic_loss, actor_loss = agent.update(sts,acts,rews,new_sts,not_dones,n_epochs,n_TD)
             'Update replay buffers'
             n_removed_samples = max(n_train_samples - replay_buffer_size,0)
             if not n_removed_samples == 0:
@@ -76,7 +76,7 @@ def train_batch(env,agent,args):
                 not_dones = list(shuffled_zipped_ERB[4])
                 n_train_samples = n_train_samples - n_removed_samples
             'Print loss'
-            print(f'| Critic loss: {critic_loss}')
+            print(f'| Critic loss: {critic_loss} | Actor loss: {actor_loss}')
 
     sim_data = pd.DataFrame.from_dict(paths)
     return agent,sim_data

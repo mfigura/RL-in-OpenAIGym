@@ -28,23 +28,20 @@ class AC_agent():
         self.critic_optimizer = optim.Adam(self.critic_model.parameters(), lr=critic_lrate)
         self.gamma = gamma
 
-    def _critic_update(self,s,a,r,ns,not_dones,n_ep,n_TD):
+    def _critic_update(self,train_set,test_set,n_ep,n_TD):
         '''
         Trains a critic to minimize the mean squared projected Bellman error
         Arguments: states, actions, rewards, new states, number of training epochs
         '''
-        not_dones = torch.Tensor(not_dones).unsqueeze(-1)
+        s_train, a_train, r_train, ns_train, nd_train = train_set[:]
+        s_test, a_test, r_test, ns_test, nd_test = test_set[:]
+
         for j in range(n_TD):
             with torch.no_grad():
-                nV = self.critic_model(ns) * not_dones
-                TD_targets = r + self.gamma * nV
-
-            ds = TensorDataset(s,TD_targets)
-            train_size = int(0.7 * len(ds))
-            test_size = len(ds) - train_size
-            train_ds, test_ds = torch.utils.data.random_split(ds, [train_size, test_size])
-            s_train, y_train = train_ds[:]
-            s_test, y_test = test_ds[:]
+                nV_train = self.critic_model(ns_train) * nd_train.unsqueeze(-1)
+                y_train = r_train + self.gamma * nV_train
+                nV_test = self.critic_model(ns_test) * nd_test.unsqueeze(-1)
+                y_test = r_test + self.gamma * nV_test
 
             for i in range(n_ep):
                 self.critic_model.train()
@@ -57,30 +54,38 @@ class AC_agent():
                 with torch.no_grad():
                     V_test = self.critic_model(s_test)
                     valid_loss = ((y_test - V_test)**2).mean()
-            #print(f'Epoch: {i}, training loss: {train_loss}, validation loss: {valid_loss}')
-        return train_loss
+        return (train_loss,valid_loss)
 
-    def _actor_update(self,s,a,r,ns,not_dones):
+    def _actor_update(self,train_set):
         '''
         Actor update
         Arguments: states, actions, rewards, new states
         '''
-        not_dones = torch.Tensor(not_dones).unsqueeze(-1)
+        s_train, a_train, r_train, ns_train, nd_train = train_set[:]
         with torch.no_grad():
-            TD_errors = (r + self.gamma * self.critic_model(ns) * not_dones - self.critic_model(s)).squeeze(-1)
+            V_train = self.critic_model(s_train)
+            nV_train = self.critic_model(ns_train) * nd_train.unsqueeze(-1)
+            TD_errors = (r_train + self.gamma * nV_train - V_train).squeeze()
         self.actor_model.train()
-        a_prob = self.actor_model(s)
-        loss = - (a_prob.log_prob(a) * TD_errors).sum()
+        log_policy = - self.actor_model(s_train.squeeze()).log_prob(a_train.squeeze())
+        train_loss = (log_policy * TD_errors).sum()
         self.actor_optimizer.zero_grad()
-        loss.backward()
+        train_loss.backward()
         self.actor_optimizer.step()
-        return loss
+        for param in self.actor_model.parameters():
+            param.data = param.data.clamp(-10,10)
+        return train_loss
 
-    def update(self,states,actions,rewards,new_states,not_dones,n_epochs,n_TD):
+    def update(self,s,a,r,ns,not_dones,n_epochs,n_TD):
         '''Update actor and critic networks'''
-        critic_loss = self._critic_update(states,actions,rewards,new_states,not_dones,n_epochs,n_TD)
-        actor_loss = self._actor_update(states,actions,rewards,new_states,not_dones)
-        return critic_loss
+        ds = TensorDataset(s,a,r,ns,not_dones)
+        train_size = int(0.7 * len(ds))
+        test_size = len(ds) - train_size
+        train_ds, test_ds = torch.utils.data.random_split(ds, [train_size, test_size])
+
+        critic_loss = self._critic_update(train_ds,test_ds,n_epochs,n_TD)
+        actor_loss = self._actor_update(train_ds)
+        return critic_loss, actor_loss
 
     def get_action(self,state):
         '''Choose an action from the policy at the current state'''
